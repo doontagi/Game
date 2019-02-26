@@ -5,7 +5,7 @@ import time
 
 
 class tetris:
-    collor=["blue","purple"]
+    collor=["blue","purple","orange"]
     Box_size = 40
     width= Box_size * 8
     height= Box_size * 14
@@ -15,7 +15,9 @@ class tetris:
         columns = int(tetris.width / tetris.Box_size)
         self.MyboxNum = []
         self.changed_boxNum = []
+        self.temp_boxNum=[]
         self.chain_trigger = []
+        self.limitedkey=0
 
         # 외곽선 맵 생성관련 논리
         for a in range(rows) :
@@ -75,25 +77,26 @@ class tetris:
 
     # 게임 조작키 이벤트
     def handle_events(self,event):
-        self.overlap()
-        self.overlap2()
+        if self.limitedkey!=1:
+            self.overlap()
+            self.overlap2()
 
-        if self.can_left:   # 오버래핑이 발생한 경우 키입력을 제한
-            if event.keysym == "Left":
-                canvas.move(self.objbox, -tetris.Box_size, 0)
-            if event.keysym == "Left":
-                canvas.move(self.objbox2, -tetris.Box_size, 0)
+            if self.can_left:   # 오버래핑이 발생한 경우 키입력을 제한
+                if event.keysym == "Left":
+                    canvas.move(self.objbox, -tetris.Box_size, 0)
+                if event.keysym == "Left":
+                    canvas.move(self.objbox2, -tetris.Box_size, 0)
 
 
 
-        if self.can_right2:
-            if event.keysym == "Right":
-                canvas.move(self.objbox, tetris.Box_size, 0)
-            if event.keysym == "Right":
-                canvas.move(self.objbox2, tetris.Box_size, 0)
+            if self.can_right2:
+                if event.keysym == "Right":
+                    canvas.move(self.objbox, tetris.Box_size, 0)
+                if event.keysym == "Right":
+                    canvas.move(self.objbox2, tetris.Box_size, 0)
 
-        self.overlap()
-        self.overlap2()
+            self.overlap()
+            self.overlap2()
 
 
     # 오버래핑 관련 함수
@@ -150,7 +153,6 @@ class tetris:
     # 연쇄 제거 함수
     def gravity(self) :                # MyboxNum = 박혀있는 상자  / changed_boxNum = 위치가 변경된 상자
         self.changed_boxNum = []   # gravity함수 시작전 gravity를 체험한 상자들의 값들을 초기화
-
         for _ in self.MyboxNum :
             BoxCoords = canvas.coords(_)
             overlap = canvas.find_overlapping(BoxCoords[0] + 1, BoxCoords[3], BoxCoords[2] - 1 , BoxCoords[3])  # MyboxNum 리스트에 등록된 상자들의 밑면선 오버랩을 실시
@@ -163,7 +165,6 @@ class tetris:
                 BoxCoords = canvas.coords(_)
                 overlap = canvas.find_overlapping(BoxCoords[0] + 1, BoxCoords[3], BoxCoords[2] - 1 , BoxCoords[3])
 
-
     # 게임 메인 루프
     def timer(self):
         if self.objbox == "Recreate" :
@@ -174,27 +175,34 @@ class tetris:
 
         self.fall(self.objbox)
         self.fall2(self.objbox2)
+        self.limitedkey=0
+
+        if self.can_fall == False or self.can_fall2 ==False  :
+            self.limitedkey=1
 
         if self.can_fall == False and self.can_fall2 ==False  :
-            if self.popping(self.objbox) or self.popping(self.objbox2):
+            canvas.update()
+            time.sleep(0.1)
+            a=self.popping(self.objbox)
+            if(self.objbox2 in self.MyboxNum):
+                b=self.popping(self.objbox2)
+            if (a or b):
+                self.chain_trigger.append("ON")  # 점수 계산용 아직 미구현
                 self.gravity()
-                for a in self.changed_boxNum :               # 1번이라도 위치가 변경된 모든 상자들을 popping
-                    if self.popping(a) :                 # 위치 변경 후 또 한번 popping이 일어난 경우
-                        self.chain_trigger.append("ON")  # 점수 계산용 아직 미구현
-                        for b in list(self.removeNum) :  # popping을 해야할 목록에 있었으나(changed_boxNum2) 순서가 오기전 pop되버려서 상자가 삭제될경우, 다음 popping 목록에 들어가지 않도록 제거하는 과정
-                            if b in self.changed_boxNum :
-                                self.changed_boxNum.remove(b)
-                self.gravity()
-
                 while "ON" in self.chain_trigger :
+                    canvas.update()
+                    time.sleep(0.1)
                     self.chain_trigger = []
-                    for a in self.changed_boxNum :
-                        if self.popping(a) :
+                    self.temp_boxNum=self.changed_boxNum[:]
+                    for a in self.temp_boxNum :
+                        if a in self.changed_boxNum:
+                            k = self.popping(a)
+                        if k :
                             self.chain_trigger.append("ON")
                             for b in list(self.removeNum) :
                                 if b in self.changed_boxNum :
                                     self.changed_boxNum.remove(b)
-                self.gravity()
+                    self.gravity()
 
 
                 #if(self.BoxCoords[1]==tetris.Box_size):
@@ -231,8 +239,7 @@ class tetris:
         samecolor=set([])
         aleadyseen=set([])
         self.removeNum=self.find_samecolor(a,samecolor,aleadyseen)
-
-        if(int(len(self.removeNum)) > 2) :
+        if(int(len(self.removeNum)) > 3) :
             for i in self.removeNum :
                 color = canvas.itemcget(i, "fill")
                 canvas.delete(i)
